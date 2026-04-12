@@ -10,7 +10,7 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Default().Print("Erro ao carregar o arquivo de configuracao")
+		log.Default().Printf("Erro ao carregar o arquivo de configuracao %s", err)
 	}
 	addr := os.Getenv("ADDR")
 	if addr == "" {
