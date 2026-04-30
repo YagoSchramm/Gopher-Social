@@ -3,9 +3,16 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 
 	"github.com/YagoSchramm/gopher-social/internal/domain"
 )
+
+//go:embed _query/comments/create.sql
+var commentCreateQuery string
+
+//go:embed _query/comments/get_by_post_id.sql
+var commentGetByPostIDQuery string
 
 func NewCommentRepository(db *sql.DB) CommentRepository {
 	return &CommentStore{db: db}
@@ -16,18 +23,12 @@ type CommentStore struct {
 }
 
 func (s *CommentStore) Create(ctx context.Context, comment *domain.Comment) error {
-	query := `
-		INSERT INTO comments (content, post_id, user_id)
-		VALUES ($1, $2, $3)
-		RETURNING id, created_at, updated_at
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	err := s.db.QueryRowContext(
 		ctx,
-		query,
+		commentCreateQuery,
 		comment.Content,
 		comment.PostID,
 		comment.UserID,
@@ -44,18 +45,10 @@ func (s *CommentStore) Create(ctx context.Context, comment *domain.Comment) erro
 }
 
 func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]domain.Comment, error) {
-	query := `
-		SELECT c.id, c.content, c.post_id, c.user_id, c.created_at, c.updated_at, u.id, u.username
-		FROM comments c
-		JOIN users u ON u.id = c.user_id
-		WHERE c.post_id = $1
-		ORDER BY c.created_at ASC
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	rows, err := s.db.QueryContext(ctx, query, postID)
+	rows, err := s.db.QueryContext(ctx, commentGetByPostIDQuery, postID)
 	if err != nil {
 		return nil, err
 	}

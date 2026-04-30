@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	_ "embed"
 	"encoding/hex"
 	"errors"
 	"time"
@@ -16,6 +17,30 @@ var (
 	ErrDuplicateUsername = errors.New("a user with that username already exists")
 )
 
+//go:embed _query/users/create.sql
+var userCreateQuery string
+
+//go:embed _query/users/get_by_id.sql
+var userGetByIDQuery string
+
+//go:embed _query/users/get_by_email.sql
+var userGetByEmailQuery string
+
+//go:embed _query/users/get_user_from_invitation.sql
+var userGetUserFromInvitationQuery string
+
+//go:embed _query/users/create_user_invitation.sql
+var userCreateUserInvitationQuery string
+
+//go:embed _query/users/update.sql
+var userUpdateQuery string
+
+//go:embed _query/users/delete_user_invitations.sql
+var userDeleteUserInvitationsQuery string
+
+//go:embed _query/users/delete.sql
+var userDeleteQuery string
+
 func NewUserRepository(db *sql.DB) UserRepository {
 	return &UserStore{db: db}
 }
@@ -25,12 +50,6 @@ type UserStore struct {
 }
 
 func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) error {
-	query := `
-		INSERT INTO users (username, password, email, role_id) VALUES 
-    ($1, $2, $3, (SELECT id FROM roles WHERE name = $4))
-    RETURNING id, created_at
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
@@ -41,7 +60,7 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) e
 
 	err := tx.QueryRowContext(
 		ctx,
-		query,
+		userCreateQuery,
 		user.Username,
 		user.Password.Hash,
 		user.Email,
@@ -65,20 +84,13 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) e
 }
 
 func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, error) {
-	query := `
-		SELECT users.id, username, email, password, created_at, roles.*
-		FROM users
-		JOIN roles ON (users.role_id = roles.id)
-		WHERE users.id = $1 AND is_active = true
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	user := &domain.User{}
 	err := s.db.QueryRowContext(
 		ctx,
-		query,
+		userGetByIDQuery,
 		userID,
 	).Scan(
 		&user.ID,
@@ -141,13 +153,6 @@ func (s *UserStore) Activate(ctx context.Context, token string) error {
 }
 
 func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token string) (*domain.User, error) {
-	query := `
-		SELECT u.id, u.username, u.email, u.created_at, u.is_active
-		FROM users u
-		JOIN user_invitations ui ON u.id = ui.user_id
-		WHERE ui.token = $1 AND ui.expiry > $2
-	`
-
 	hash := sha256.Sum256([]byte(token))
 	hashToken := hex.EncodeToString(hash[:])
 
@@ -155,7 +160,7 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 	defer cancel()
 
 	user := &domain.User{}
-	err := tx.QueryRowContext(ctx, query, hashToken, time.Now()).Scan(
+	err := tx.QueryRowContext(ctx, userGetUserFromInvitationQuery, hashToken, time.Now()).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -175,12 +180,10 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 }
 
 func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, token string, exp time.Duration, userID int64) error {
-	query := `INSERT INTO user_invitations (token, user_id, expiry) VALUES ($1, $2, $3)`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, query, token, userID, time.Now().Add(exp))
+	_, err := tx.ExecContext(ctx, userCreateUserInvitationQuery, token, userID, time.Now().Add(exp))
 	if err != nil {
 		return err
 	}
@@ -189,12 +192,10 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, token 
 }
 
 func (s *UserStore) update(ctx context.Context, tx *sql.Tx, user *domain.User) error {
-	query := `UPDATE users SET username = $1, email = $2, is_active = $3 WHERE id = $4`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, query, user.Username, user.Email, user.IsActive, user.ID)
+	_, err := tx.ExecContext(ctx, userUpdateQuery, user.Username, user.Email, user.IsActive, user.ID)
 	if err != nil {
 		return err
 	}
@@ -203,12 +204,10 @@ func (s *UserStore) update(ctx context.Context, tx *sql.Tx, user *domain.User) e
 }
 
 func (s *UserStore) deleteUserInvitations(ctx context.Context, tx *sql.Tx, userID int64) error {
-	query := `DELETE FROM user_invitations WHERE user_id = $1`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, query, userID)
+	_, err := tx.ExecContext(ctx, userDeleteUserInvitationsQuery, userID)
 	if err != nil {
 		return err
 	}
@@ -231,12 +230,10 @@ func (s *UserStore) Delete(ctx context.Context, userID int64) error {
 }
 
 func (s *UserStore) delete(ctx context.Context, tx *sql.Tx, id int64) error {
-	query := `DELETE FROM users WHERE id = $1`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, query, id)
+	_, err := tx.ExecContext(ctx, userDeleteQuery, id)
 	if err != nil {
 		return err
 	}
@@ -245,16 +242,11 @@ func (s *UserStore) delete(ctx context.Context, tx *sql.Tx, id int64) error {
 }
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	query := `
-		SELECT id, username, email, password, created_at FROM users
-		WHERE email = $1 AND is_active = true
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	user := &domain.User{}
-	err := s.db.QueryRowContext(ctx, query, email).Scan(
+	err := s.db.QueryRowContext(ctx, userGetByEmailQuery, email).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
