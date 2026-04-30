@@ -7,6 +7,10 @@ import (
 	"github.com/YagoSchramm/gopher-social/internal/domain"
 )
 
+func NewCommentRepository(db *sql.DB) CommentRepository {
+	return &CommentStore{db: db}
+}
+
 type CommentStore struct {
 	db *sql.DB
 }

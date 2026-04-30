@@ -7,6 +7,10 @@ import (
 	"github.com/YagoSchramm/gopher-social/internal/domain"
 )
 
+func NewRoleRepository(db *sql.DB) RoleRepository {
+	return &RoleStore{db: db}
+}
+
 type RoleStore struct {
 	db *sql.DB
 }

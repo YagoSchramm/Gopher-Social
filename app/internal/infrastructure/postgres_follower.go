@@ -8,6 +8,10 @@ import (
 	"github.com/lib/pq"
 )
 
+func NewFollowerRepository(db *sql.DB) FollowerRepository {
+	return &FollowerStore{db: db}
+}
+
 type FollowerStore struct {
 	db *sql.DB
 }

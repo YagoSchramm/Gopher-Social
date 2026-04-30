@@ -16,6 +16,10 @@ var (
 	ErrDuplicateUsername = errors.New("a user with that username already exists")
 )
 
+func NewUserRepository(db *sql.DB) UserRepository {
+	return &UserStore{db: db}
+}
+
 type UserStore struct {
 	db *sql.DB
 }

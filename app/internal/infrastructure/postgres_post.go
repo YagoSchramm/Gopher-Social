@@ -9,6 +9,10 @@ import (
 	"github.com/lib/pq"
 )
 
+func NewPostRepository(db *sql.DB) PostRepository {
+	return &PostStore{db: db}
+}
+
 type PostStore struct {
 	db *sql.DB
 }
