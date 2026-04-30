@@ -8,7 +8,7 @@ import (
 	"errors"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
+	"github.com/YagoSchramm/gopher-social/internal/domain"
 )
 
 var (
@@ -16,43 +16,11 @@ var (
 	ErrDuplicateUsername = errors.New("a user with that username already exists")
 )
 
-type User struct {
-	ID        int64    `json:"id"`
-	Username  string   `json:"username"`
-	Email     string   `json:"email"`
-	Password  password `json:"-"`
-	CreatedAt string   `json:"created_at"`
-	IsActive  bool     `json:"is_active"`
-	RoleID    int64    `json:"role_id"`
-	Role      Role     `json:"role"`
-}
-
-type password struct {
-	text *string
-	hash []byte
-}
-
-func (p *password) Set(text string) error {
-	hash, err := bcrypt.GenerateFromPassword([]byte(text), bcrypt.DefaultCost)
-	if err != nil {
-		return err
-	}
-
-	p.text = &text
-	p.hash = hash
-
-	return nil
-}
-
-func (p *password) Compare(text string) error {
-	return bcrypt.CompareHashAndPassword(p.hash, []byte(text))
-}
-
 type UserStore struct {
 	db *sql.DB
 }
 
-func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *User) error {
+func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) error {
 	query := `
 		INSERT INTO users (username, password, email, role_id) VALUES 
     ($1, $2, $3, (SELECT id FROM roles WHERE name = $4))
@@ -71,7 +39,7 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *User) error {
 		ctx,
 		query,
 		user.Username,
-		user.Password.hash,
+		user.Password.Hash,
 		user.Email,
 		role,
 	).Scan(
@@ -92,7 +60,7 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *User) error {
 	return nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
+func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, error) {
 	query := `
 		SELECT users.id, username, email, password, created_at, roles.*
 		FROM users
@@ -103,7 +71,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	user := &User{}
+	user := &domain.User{}
 	err := s.db.QueryRowContext(
 		ctx,
 		query,
@@ -112,7 +80,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
 		&user.ID,
 		&user.Username,
 		&user.Email,
-		&user.Password.hash,
+		&user.Password.Hash,
 		&user.CreatedAt,
 		&user.Role.ID,
 		&user.Role.Name,
@@ -131,7 +99,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*User, error) {
 	return user, nil
 }
 
-func (s *UserStore) CreateAndInvite(ctx context.Context, user *User, token string, invitationExp time.Duration) error {
+func (s *UserStore) CreateAndInvite(ctx context.Context, user *domain.User, token string, invitationExp time.Duration) error {
 	return withTx(s.db, ctx, func(tx *sql.Tx) error {
 		if err := s.Create(ctx, tx, user); err != nil {
 			return err
@@ -168,7 +136,7 @@ func (s *UserStore) Activate(ctx context.Context, token string) error {
 	})
 }
 
-func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token string) (*User, error) {
+func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token string) (*domain.User, error) {
 	query := `
 		SELECT u.id, u.username, u.email, u.created_at, u.is_active
 		FROM users u
@@ -182,7 +150,7 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	user := &User{}
+	user := &domain.User{}
 	err := tx.QueryRowContext(ctx, query, hashToken, time.Now()).Scan(
 		&user.ID,
 		&user.Username,
@@ -216,7 +184,7 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, token 
 	return nil
 }
 
-func (s *UserStore) update(ctx context.Context, tx *sql.Tx, user *User) error {
+func (s *UserStore) update(ctx context.Context, tx *sql.Tx, user *domain.User) error {
 	query := `UPDATE users SET username = $1, email = $2, is_active = $3 WHERE id = $4`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
@@ -272,7 +240,7 @@ func (s *UserStore) delete(ctx context.Context, tx *sql.Tx, id int64) error {
 	return nil
 }
 
-func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error) {
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, username, email, password, created_at FROM users
 		WHERE email = $1 AND is_active = true
@@ -281,12 +249,12 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*User, error)
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	user := &User{}
+	user := &domain.User{}
 	err := s.db.QueryRowContext(ctx, query, email).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
-		&user.Password.hash,
+		&user.Password.Hash,
 		&user.CreatedAt,
 	)
 	if err != nil {

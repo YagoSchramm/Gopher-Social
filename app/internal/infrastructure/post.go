@@ -5,32 +5,15 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/YagoSchramm/gopher-social/internal/domain"
 	"github.com/lib/pq"
 )
-
-type Post struct {
-	ID        int64     `json:"id"`
-	Content   string    `json:"content"`
-	Title     string    `json:"title"`
-	UserID    int64     `json:"user_id"`
-	Tags      []string  `json:"tags"`
-	CreatedAt string    `json:"created_at"`
-	UpdatedAt string    `json:"updated_at"`
-	Version   int       `json:"version"`
-	Comments  []Comment `json:"comments"`
-	User      User      `json:"user"`
-}
-
-type PostWithMetadata struct {
-	Post
-	CommentsCount int `json:"comments_count"`
-}
 
 type PostStore struct {
 	db *sql.DB
 }
 
-func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq PaginatedFeedQuery) ([]PostWithMetadata, error) {
+func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq domain.PaginatedFeedQuery) ([]domain.PostWithMetadata, error) {
 	query := `
 		SELECT 
 			p.id, p.user_id, p.title, p.content, p.created_at, p.version, p.tags,
@@ -59,9 +42,9 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq PaginatedF
 
 	defer rows.Close()
 
-	var feed []PostWithMetadata
+	var feed []domain.PostWithMetadata
 	for rows.Next() {
-		var p PostWithMetadata
+		var p domain.PostWithMetadata
 		err := rows.Scan(
 			&p.ID,
 			&p.UserID,
@@ -83,7 +66,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq PaginatedF
 	return feed, nil
 }
 
-func (s *PostStore) Create(ctx context.Context, post *Post) error {
+func (s *PostStore) Create(ctx context.Context, post *domain.Post) error {
 	query := `
 		INSERT INTO posts (content, title, user_id, tags)
 		VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
@@ -111,7 +94,7 @@ func (s *PostStore) Create(ctx context.Context, post *Post) error {
 	return nil
 }
 
-func (s *PostStore) GetByID(ctx context.Context, id int64) (*Post, error) {
+func (s *PostStore) GetByID(ctx context.Context, id int64) (*domain.Post, error) {
 	query := `
 		SELECT id, user_id, title, content, created_at,  updated_at, tags, version
 		FROM posts
@@ -121,7 +104,7 @@ func (s *PostStore) GetByID(ctx context.Context, id int64) (*Post, error) {
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	var post Post
+	var post domain.Post
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&post.ID,
 		&post.UserID,
@@ -167,7 +150,7 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 	return nil
 }
 
-func (s *PostStore) Update(ctx context.Context, post *Post) error {
+func (s *PostStore) Update(ctx context.Context, post *domain.Post) error {
 	query := `
 		UPDATE posts
 		SET title = $1, content = $2, version = version + 1
