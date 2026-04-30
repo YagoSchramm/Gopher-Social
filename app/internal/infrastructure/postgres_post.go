@@ -3,38 +3,42 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"errors"
+	"strings"
 
 	"github.com/YagoSchramm/gopher-social/internal/domain"
 	"github.com/lib/pq"
 )
+
+//go:embed _query/posts/get_user_feed.sql
+var postGetUserFeedQuery string
+
+//go:embed _query/posts/create.sql
+var postCreateQuery string
+
+//go:embed _query/posts/get_by_id.sql
+var postGetByIDQuery string
+
+//go:embed _query/posts/delete.sql
+var postDeleteQuery string
+
+//go:embed _query/posts/update.sql
+var postUpdateQuery string
+
+func NewPostRepository(db *sql.DB) PostRepository {
+	return &PostStore{db: db}
+}
 
 type PostStore struct {
 	db *sql.DB
 }
 
 func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq domain.PaginatedFeedQuery) ([]domain.PostWithMetadata, error) {
-	query := `
-		SELECT 
-			p.id, p.user_id, p.title, p.content, p.created_at, p.version, p.tags,
-			u.username,
-			COUNT(c.id) AS comments_count
-		FROM posts p
-		LEFT JOIN comments c ON c.post_id = p.id
-		LEFT JOIN users u ON p.user_id = u.id
-		JOIN followers f ON f.follower_id = p.user_id OR p.user_id = $1
-		WHERE 
-			f.user_id = $1 AND
-			(p.title ILIKE '%' || $4 || '%' OR p.content ILIKE '%' || $4 || '%') AND
-			(p.tags @> $5 OR $5 = '{}')
-		GROUP BY p.id, u.username
-		ORDER BY p.created_at ` + fq.Sort + `
-		LIMIT $2 OFFSET $3
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
+	query := strings.ReplaceAll(postGetUserFeedQuery, "{{SORT}}", fq.Sort)
 	rows, err := s.db.QueryContext(ctx, query, userID, fq.Limit, fq.Offset, fq.Search, pq.Array(fq.Tags))
 	if err != nil {
 		return nil, err
@@ -67,17 +71,12 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq domain.Pag
 }
 
 func (s *PostStore) Create(ctx context.Context, post *domain.Post) error {
-	query := `
-		INSERT INTO posts (content, title, user_id, tags)
-		VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	err := s.db.QueryRowContext(
 		ctx,
-		query,
+		postCreateQuery,
 		post.Content,
 		post.Title,
 		post.UserID,
@@ -95,17 +94,11 @@ func (s *PostStore) Create(ctx context.Context, post *domain.Post) error {
 }
 
 func (s *PostStore) GetByID(ctx context.Context, id int64) (*domain.Post, error) {
-	query := `
-		SELECT id, user_id, title, content, created_at,  updated_at, tags, version
-		FROM posts
-		WHERE id = $1
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	var post domain.Post
-	err := s.db.QueryRowContext(ctx, query, id).Scan(
+	err := s.db.QueryRowContext(ctx, postGetByIDQuery, id).Scan(
 		&post.ID,
 		&post.UserID,
 		&post.Title,
@@ -128,12 +121,10 @@ func (s *PostStore) GetByID(ctx context.Context, id int64) (*domain.Post, error)
 }
 
 func (s *PostStore) Delete(ctx context.Context, postID int64) error {
-	query := `DELETE FROM posts WHERE id = $1`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	res, err := s.db.ExecContext(ctx, query, postID)
+	res, err := s.db.ExecContext(ctx, postDeleteQuery, postID)
 	if err != nil {
 		return err
 	}
@@ -151,19 +142,12 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 }
 
 func (s *PostStore) Update(ctx context.Context, post *domain.Post) error {
-	query := `
-		UPDATE posts
-		SET title = $1, content = $2, version = version + 1
-		WHERE id = $3 AND version = $4
-		RETURNING version
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	err := s.db.QueryRowContext(
 		ctx,
-		query,
+		postUpdateQuery,
 		post.Title,
 		post.Content,
 		post.ID,

@@ -3,22 +3,31 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
+	_ "embed"
 	"errors"
 
 	"github.com/lib/pq"
 )
+
+//go:embed _query/followers/follow.sql
+var followerFollowQuery string
+
+//go:embed _query/followers/unfollow.sql
+var followerUnfollowQuery string
+
+func NewFollowerRepository(db *sql.DB) FollowerRepository {
+	return &FollowerStore{db: db}
+}
 
 type FollowerStore struct {
 	db *sql.DB
 }
 
 func (s *FollowerStore) Follow(ctx context.Context, userID, followerID int64) error {
-	query := `INSERT INTO followers (user_id, follower_id) VALUES ($1, $2)`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx, query, userID, followerID)
+	_, err := s.db.ExecContext(ctx, followerFollowQuery, userID, followerID)
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
@@ -31,12 +40,10 @@ func (s *FollowerStore) Follow(ctx context.Context, userID, followerID int64) er
 }
 
 func (s *FollowerStore) Unfollow(ctx context.Context, followerID, userID int64) error {
-	query := `DELETE FROM followers WHERE follower_id = $1 AND user_id = $2`
-
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	res, err := s.db.ExecContext(ctx, query, followerID, userID)
+	res, err := s.db.ExecContext(ctx, followerUnfollowQuery, followerID, userID)
 	if err != nil {
 		return err
 	}
