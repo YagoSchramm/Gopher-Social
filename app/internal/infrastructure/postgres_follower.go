@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"errors"
 
+	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/lib/pq"
 )
 
@@ -31,7 +32,7 @@ func (s *FollowerStore) Follow(ctx context.Context, userID, followerID int64) er
 	if err != nil {
 		var pqErr *pq.Error
 		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
-			return ErrConflict
+			return derr.FollowerConflict
 		}
 		return err
 	}
@@ -54,7 +55,7 @@ func (s *FollowerStore) Unfollow(ctx context.Context, followerID, userID int64) 
 	}
 
 	if rows == 0 {
-		return ErrNotFound
+		return derr.FollowerNotFound
 	}
 
 	return nil
