@@ -9,12 +9,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
-)
-
-var (
-	ErrDuplicateEmail    = errors.New("a user with that email already exists")
-	ErrDuplicateUsername = errors.New("a user with that username already exists")
 )
 
 //go:embed _query/users/create.sql
@@ -27,16 +23,16 @@ var userGetByIDQuery string
 var userGetByEmailQuery string
 
 //go:embed _query/users/get_user_from_invitation.sql
-var userGetUserFromInvitationQuery string
+var userGetByInvitationQuery string
 
 //go:embed _query/users/create_user_invitation.sql
-var userCreateUserInvitationQuery string
+var userCreateInvitationQuery string
 
 //go:embed _query/users/update.sql
 var userUpdateQuery string
 
 //go:embed _query/users/delete_user_invitations.sql
-var userDeleteUserInvitationsQuery string
+var userDeleteInvitationsQuery string
 
 //go:embed _query/users/delete.sql
 var userDeleteQuery string
@@ -71,10 +67,12 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) e
 	)
 	if err != nil {
 		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return derr.NotFound
 		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
-			return ErrDuplicateEmail
+			return derr.InvalidUserEmail
 		case err.Error() == `pq: duplicate key value violates unique constraint "users_username_key"`:
-			return ErrDuplicateUsername
+			return derr.InvalidUserName
 		default:
 			return err
 		}
@@ -106,7 +104,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, er
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return nil, ErrNotFound
+			return nil, derr.NotFound
 		default:
 			return nil, err
 		}
@@ -160,7 +158,7 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 	defer cancel()
 
 	user := &domain.User{}
-	err := tx.QueryRowContext(ctx, userGetUserFromInvitationQuery, hashToken, time.Now()).Scan(
+	err := tx.QueryRowContext(ctx, userGetByInvitationQuery, hashToken, time.Now()).Scan(
 		&user.ID,
 		&user.Username,
 		&user.Email,
@@ -170,7 +168,7 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return nil, ErrNotFound
+			return nil, derr.NotFound
 		default:
 			return nil, err
 		}
@@ -183,7 +181,7 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, token 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, userCreateUserInvitationQuery, token, userID, time.Now().Add(exp))
+	_, err := tx.ExecContext(ctx, userCreateInvitationQuery, token, userID, time.Now().Add(exp))
 	if err != nil {
 		return err
 	}
@@ -207,7 +205,7 @@ func (s *UserStore) deleteUserInvitations(ctx context.Context, tx *sql.Tx, userI
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	_, err := tx.ExecContext(ctx, userDeleteUserInvitationsQuery, userID)
+	_, err := tx.ExecContext(ctx, userDeleteInvitationsQuery, userID)
 	if err != nil {
 		return err
 	}
@@ -256,7 +254,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User,
 	if err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return nil, ErrNotFound
+			return nil, derr.NotFound
 		default:
 			return nil, err
 		}

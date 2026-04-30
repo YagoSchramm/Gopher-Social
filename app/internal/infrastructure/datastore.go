@@ -3,17 +3,12 @@ package infrastructure
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"time"
 
 	"github.com/YagoSchramm/gopher-social/internal/domain"
 )
 
-var (
-	ErrNotFound          = errors.New("resource not found")
-	ErrConflict          = errors.New("resource already exists")
-	QueryTimeoutDuration = time.Second * 5
-)
+var QueryTimeoutDuration = time.Second * 5
 
 type Datastore interface {
 	Posts() PostRepository

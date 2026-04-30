@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
 	"github.com/lib/pq"
 )
@@ -111,7 +112,7 @@ func (s *PostStore) GetByID(ctx context.Context, id int64) (*domain.Post, error)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrNotFound
+			return nil, derr.PostNotFound
 		default:
 			return nil, err
 		}
@@ -135,7 +136,7 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 	}
 
 	if rows == 0 {
-		return ErrNotFound
+		return derr.PostNotFound
 	}
 
 	return nil
@@ -156,7 +157,7 @@ func (s *PostStore) Update(ctx context.Context, post *domain.Post) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return ErrNotFound
+			return derr.PostNotFound
 		default:
 			return err
 		}
