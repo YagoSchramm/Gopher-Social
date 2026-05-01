@@ -1,4 +1,4 @@
-package infrastructure
+package impl
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"errors"
 
 	"github.com/YagoSchramm/gopher-social/internal/derr"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/repository"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/util"
 	"github.com/lib/pq"
 )
 
@@ -16,7 +18,7 @@ var followerFollowQuery string
 //go:embed _query/followers/unfollow.sql
 var followerUnfollowQuery string
 
-func NewFollowerRepository(db *sql.DB) FollowerRepository {
+func NewFollowerRepository(db *sql.DB) repository.FollowerRepository {
 	return &FollowerStore{db: db}
 }
 
@@ -25,7 +27,7 @@ type FollowerStore struct {
 }
 
 func (s *FollowerStore) Follow(ctx context.Context, userID, followerID int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	_, err := s.db.ExecContext(ctx, followerFollowQuery, userID, followerID)
@@ -41,7 +43,7 @@ func (s *FollowerStore) Follow(ctx context.Context, userID, followerID int64) er
 }
 
 func (s *FollowerStore) Unfollow(ctx context.Context, followerID, userID int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	res, err := s.db.ExecContext(ctx, followerUnfollowQuery, followerID, userID)

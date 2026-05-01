@@ -1,4 +1,4 @@
-package infrastructure
+package impl
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	_ "embed"
 
 	"github.com/YagoSchramm/gopher-social/internal/domain"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/repository"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/util"
 )
 
 //go:embed _query/comments/create.sql
@@ -14,7 +16,7 @@ var commentCreateQuery string
 //go:embed _query/comments/get_by_post_id.sql
 var commentGetByPostIDQuery string
 
-func NewCommentRepository(db *sql.DB) CommentRepository {
+func NewCommentRepository(db *sql.DB) repository.CommentRepository {
 	return &CommentStore{db: db}
 }
 
@@ -23,7 +25,7 @@ type CommentStore struct {
 }
 
 func (s *CommentStore) Create(ctx context.Context, comment *domain.Comment) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	err := s.db.QueryRowContext(
@@ -45,7 +47,7 @@ func (s *CommentStore) Create(ctx context.Context, comment *domain.Comment) erro
 }
 
 func (s *CommentStore) GetByPostID(ctx context.Context, postID int64) ([]domain.Comment, error) {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	rows, err := s.db.QueryContext(ctx, commentGetByPostIDQuery, postID)

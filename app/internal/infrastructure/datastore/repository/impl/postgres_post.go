@@ -1,4 +1,4 @@
-package infrastructure
+package impl
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/util"
 	"github.com/lib/pq"
 )
 
@@ -36,7 +37,7 @@ type PostStore struct {
 }
 
 func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq domain.PaginatedFeedQuery) ([]domain.PostWithMetadata, error) {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	query := strings.ReplaceAll(postGetUserFeedQuery, "{{SORT}}", fq.Sort)
@@ -72,7 +73,7 @@ func (s *PostStore) GetUserFeed(ctx context.Context, userID int64, fq domain.Pag
 }
 
 func (s *PostStore) Create(ctx context.Context, post *domain.Post) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	err := s.db.QueryRowContext(
@@ -95,7 +96,7 @@ func (s *PostStore) Create(ctx context.Context, post *domain.Post) error {
 }
 
 func (s *PostStore) GetByID(ctx context.Context, id int64) (*domain.Post, error) {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	var post domain.Post
@@ -122,7 +123,7 @@ func (s *PostStore) GetByID(ctx context.Context, id int64) (*domain.Post, error)
 }
 
 func (s *PostStore) Delete(ctx context.Context, postID int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	res, err := s.db.ExecContext(ctx, postDeleteQuery, postID)
@@ -143,7 +144,7 @@ func (s *PostStore) Delete(ctx context.Context, postID int64) error {
 }
 
 func (s *PostStore) Update(ctx context.Context, post *domain.Post) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	err := s.db.QueryRowContext(
