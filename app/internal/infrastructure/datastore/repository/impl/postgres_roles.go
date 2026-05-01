@@ -1,4 +1,4 @@
-package infrastructure
+package impl
 
 import (
 	"context"
@@ -8,12 +8,13 @@ import (
 
 	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/repository"
 )
 
 //go:embed _query/roles/get_by_name.sql
 var roleGetByNameQuery string
 
-func NewRoleRepository(db *sql.DB) RoleRepository {
+func NewRoleRepository(db *sql.DB) repository.RoleRepository {
 	return &RoleStore{db: db}
 }
 

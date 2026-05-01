@@ -1,4 +1,4 @@
-package infrastructure
+package impl
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 
 	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/repository"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/util"
 )
 
 //go:embed _query/users/create.sql
@@ -37,7 +39,7 @@ var userDeleteInvitationsQuery string
 //go:embed _query/users/delete.sql
 var userDeleteQuery string
 
-func NewUserRepository(db *sql.DB) UserRepository {
+func NewUserRepository(db *sql.DB) repository.UserRepository {
 	return &UserStore{db: db}
 }
 
@@ -46,7 +48,7 @@ type UserStore struct {
 }
 
 func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	role := user.Role.Name
@@ -82,7 +84,7 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) e
 }
 
 func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	user := &domain.User{}
@@ -114,7 +116,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, er
 }
 
 func (s *UserStore) CreateAndInvite(ctx context.Context, user *domain.User, token string, invitationExp time.Duration) error {
-	return withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return repository.withTx(s.db, ctx, func(tx *sql.Tx) error {
 		if err := s.Create(ctx, tx, user); err != nil {
 			return err
 		}
@@ -128,7 +130,7 @@ func (s *UserStore) CreateAndInvite(ctx context.Context, user *domain.User, toke
 }
 
 func (s *UserStore) Activate(ctx context.Context, token string) error {
-	return withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return repository.withTx(s.db, ctx, func(tx *sql.Tx) error {
 		// 1. find the user that this token belongs to
 		user, err := s.getUserFromInvitation(ctx, tx, token)
 		if err != nil {
@@ -154,7 +156,7 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 	hash := sha256.Sum256([]byte(token))
 	hashToken := hex.EncodeToString(hash[:])
 
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	user := &domain.User{}
@@ -178,7 +180,7 @@ func (s *UserStore) getUserFromInvitation(ctx context.Context, tx *sql.Tx, token
 }
 
 func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, token string, exp time.Duration, userID int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	_, err := tx.ExecContext(ctx, userCreateInvitationQuery, token, userID, time.Now().Add(exp))
@@ -190,7 +192,7 @@ func (s *UserStore) createUserInvitation(ctx context.Context, tx *sql.Tx, token 
 }
 
 func (s *UserStore) update(ctx context.Context, tx *sql.Tx, user *domain.User) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	_, err := tx.ExecContext(ctx, userUpdateQuery, user.Username, user.Email, user.IsActive, user.ID)
@@ -202,7 +204,7 @@ func (s *UserStore) update(ctx context.Context, tx *sql.Tx, user *domain.User) e
 }
 
 func (s *UserStore) deleteUserInvitations(ctx context.Context, tx *sql.Tx, userID int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	_, err := tx.ExecContext(ctx, userDeleteInvitationsQuery, userID)
@@ -214,7 +216,7 @@ func (s *UserStore) deleteUserInvitations(ctx context.Context, tx *sql.Tx, userI
 }
 
 func (s *UserStore) Delete(ctx context.Context, userID int64) error {
-	return withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return repository.withTx(s.db, ctx, func(tx *sql.Tx) error {
 		if err := s.delete(ctx, tx, userID); err != nil {
 			return err
 		}
@@ -228,7 +230,7 @@ func (s *UserStore) Delete(ctx context.Context, userID int64) error {
 }
 
 func (s *UserStore) delete(ctx context.Context, tx *sql.Tx, id int64) error {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	_, err := tx.ExecContext(ctx, userDeleteQuery, id)
@@ -240,7 +242,7 @@ func (s *UserStore) delete(ctx context.Context, tx *sql.Tx, id int64) error {
 }
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	ctx, cancel := context.WithTimeout(ctx, util.QueryTimeoutDuration)
 	defer cancel()
 
 	user := &domain.User{}
