@@ -34,27 +34,18 @@ func NewClientError(code string, message string) ClientError {
 	}
 }
 
-func NewInternalError(message string) RepositoryError {
-	return RepositoryError{
-		Code:    "INTERNAL_SERVER_ERROR",
-		Message: message,
-	}
-}
-
-func NewBadRequestError(message string) ClientError {
-	return ClientError{
-		Code:    "BAD_REQUEST",
-		Message: message,
-	}
-}
-
-func NewUnauthorizedError(message string) ClientError {
-	return ClientError{
-		Code:    "UNAUTHORIZED",
-		Message: message,
-	}
-}
-
 func JoinError(message string, err error) error {
 	return errors.Join(errors.New(message), err)
 }
+
+var (
+	NotFound         = NewRepositoryError("NOT_FOUND", "resource not found")
+	Conflict         = NewClientError("CONFLICT", "resource already exists")
+	CommentNotFound  = NotFound
+	FollowerNotFound = NotFound
+	FollowerConflict = Conflict
+	PostNotFound     = NotFound
+	RoleNotFound     = NotFound
+	InvalidUserName  = NewClientError("INVALID_USER_NAME", "a user with that username already exists")
+	InvalidUserEmail = NewClientError("INVALID_USER_EMAIL", "a user with that email already exists")
+)
