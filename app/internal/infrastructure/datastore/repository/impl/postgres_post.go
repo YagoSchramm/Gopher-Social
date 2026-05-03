@@ -9,6 +9,7 @@ import (
 
 	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/repository"
 	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/util"
 	"github.com/lib/pq"
 )
@@ -28,7 +29,7 @@ var postDeleteQuery string
 //go:embed _query/posts/update.sql
 var postUpdateQuery string
 
-func NewPostRepository(db *sql.DB) PostRepository {
+func NewPostRepository(db *sql.DB) repository.PostRepository {
 	return &PostStore{db: db}
 }
 

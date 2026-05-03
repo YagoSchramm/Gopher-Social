@@ -60,7 +60,7 @@ func (s *UserStore) Create(ctx context.Context, tx *sql.Tx, user *domain.User) e
 		ctx,
 		userCreateQuery,
 		user.Username,
-		user.Password.Hash,
+		user.Password,
 		user.Email,
 		role,
 	).Scan(
@@ -96,7 +96,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, er
 		&user.ID,
 		&user.Username,
 		&user.Email,
-		&user.Password.Hash,
+		&user.Password,
 		&user.CreatedAt,
 		&user.Role.ID,
 		&user.Role.Name,
@@ -116,7 +116,7 @@ func (s *UserStore) GetByID(ctx context.Context, userID int64) (*domain.User, er
 }
 
 func (s *UserStore) CreateAndInvite(ctx context.Context, user *domain.User, token string, invitationExp time.Duration) error {
-	return repository.withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return util.WithTx(s.db, ctx, func(tx *sql.Tx) error {
 		if err := s.Create(ctx, tx, user); err != nil {
 			return err
 		}
@@ -130,7 +130,7 @@ func (s *UserStore) CreateAndInvite(ctx context.Context, user *domain.User, toke
 }
 
 func (s *UserStore) Activate(ctx context.Context, token string) error {
-	return repository.withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return util.WithTx(s.db, ctx, func(tx *sql.Tx) error {
 		// 1. find the user that this token belongs to
 		user, err := s.getUserFromInvitation(ctx, tx, token)
 		if err != nil {
@@ -216,7 +216,7 @@ func (s *UserStore) deleteUserInvitations(ctx context.Context, tx *sql.Tx, userI
 }
 
 func (s *UserStore) Delete(ctx context.Context, userID int64) error {
-	return repository.withTx(s.db, ctx, func(tx *sql.Tx) error {
+	return util.WithTx(s.db, ctx, func(tx *sql.Tx) error {
 		if err := s.delete(ctx, tx, userID); err != nil {
 			return err
 		}
@@ -250,7 +250,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*domain.User,
 		&user.ID,
 		&user.Username,
 		&user.Email,
-		&user.Password.Hash,
+		&user.Password,
 		&user.CreatedAt,
 	)
 	if err != nil {

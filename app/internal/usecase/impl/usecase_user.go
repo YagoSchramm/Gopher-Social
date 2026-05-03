@@ -7,6 +7,7 @@ import (
 
 	"github.com/YagoSchramm/gopher-social/internal/derr"
 	"github.com/YagoSchramm/gopher-social/internal/domain"
+	domainrules "github.com/YagoSchramm/gopher-social/internal/domain/rules"
 	"github.com/YagoSchramm/gopher-social/internal/infrastructure/datastore/repository"
 	"github.com/YagoSchramm/gopher-social/internal/usecase"
 )
@@ -22,8 +23,8 @@ type userUseCase struct {
 }
 
 func (u *userUseCase) GetByID(ctx context.Context, userID int64) (*domain.User, error) {
-	if userID <= 0 {
-		return nil, derr.NewBadRequestError("user id is required")
+	if err := domainrules.ValidateUserID(userID); err != nil {
+		return nil, err
 	}
 
 	user, err := u.userRepo.GetByID(ctx, userID)
@@ -36,8 +37,8 @@ func (u *userUseCase) GetByID(ctx context.Context, userID int64) (*domain.User, 
 
 func (u *userUseCase) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	email = strings.TrimSpace(email)
-	if email == "" {
-		return nil, derr.NewBadRequestError("email is required")
+	if err := domainrules.ValidateUserEmail(email); err != nil {
+		return nil, err
 	}
 
 	user, err := u.userRepo.GetByEmail(ctx, email)
@@ -54,28 +55,11 @@ func (u *userUseCase) CreateAndInvite(
 	token string,
 	invitationExp time.Duration,
 ) error {
-	if user == nil {
-		return derr.NewBadRequestError("user is required")
+	if err := domainrules.ValidateUserForCreate(user, token, invitationExp); err != nil {
+		return err
 	}
 
-	user.Username = strings.TrimSpace(user.Username)
-	user.Email = strings.TrimSpace(user.Email)
-	token = strings.TrimSpace(token)
-
-	switch {
-	case user.Username == "":
-		return derr.NewBadRequestError("username is required")
-	case user.Email == "":
-		return derr.NewBadRequestError("email is required")
-	case user.Password == "":
-		return derr.NewBadRequestError("password is required")
-	case token == "":
-		return derr.NewBadRequestError("invitation token is required")
-	case invitationExp <= 0:
-		return derr.NewBadRequestError("invitation expiration must be greater than zero")
-	}
-
-	if err := u.userRepo.CreateAndInvite(ctx, user, token, invitationExp); err != nil {
+	if err := u.userRepo.CreateAndInvite(ctx, user, strings.TrimSpace(token), invitationExp); err != nil {
 		return derr.JoinError("failed to create and invite user", err)
 	}
 
@@ -84,8 +68,8 @@ func (u *userUseCase) CreateAndInvite(
 
 func (u *userUseCase) Activate(ctx context.Context, token string) error {
 	token = strings.TrimSpace(token)
-	if token == "" {
-		return derr.NewBadRequestError("invitation token is required")
+	if err := domainrules.ValidateInvitationToken(token); err != nil {
+		return err
 	}
 
 	if err := u.userRepo.Activate(ctx, token); err != nil {
