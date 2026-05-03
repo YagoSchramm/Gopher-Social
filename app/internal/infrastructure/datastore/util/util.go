@@ -21,3 +21,7 @@ func withTx(db *sql.DB, ctx context.Context, fn func(*sql.Tx) error) error {
 
 	return tx.Commit()
 }
+
+func WithTx(db *sql.DB, ctx context.Context, fn func(*sql.Tx) error) error {
+	return withTx(db, ctx, fn)
+}
