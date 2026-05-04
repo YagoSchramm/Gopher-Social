@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/YagoSchramm/gopher-social/internal/infrastructure/router"
+	"github.com/YagoSchramm/gopher-social/internal/infrastructure/router/middlewares"
 	routermodules "github.com/YagoSchramm/gopher-social/internal/infrastructure/router/modules"
 	"github.com/gorilla/mux"
 )
@@ -30,6 +31,7 @@ func (app *Application) mount() *mux.Router {
 		}
 
 		protectedRouter := moduleRouter.NewRoute().Subrouter()
+		protectedRouter.Use(middlewares.NewJWTAuthMiddlewareFromEnv())
 		for _, mw := range module.Middlewares() {
 			protectedRouter.Use(mw)
 		}
