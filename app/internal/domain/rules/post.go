@@ -27,6 +27,29 @@ func ValidatePostForCreate(post *domain.Post) error {
 	return nil
 }
 
+func ValidatePostForUpdate(post *domain.Post) error {
+	if post == nil {
+		return derr.NewBadRequestError("post is required")
+	}
+
+	post.Title = strings.TrimSpace(post.Title)
+	post.Content = strings.TrimSpace(post.Content)
+	if post.Title == "" {
+		return derr.NewBadRequestError("title is required")
+	}
+	if post.Content == "" {
+		return derr.NewBadRequestError("content is required")
+	}
+	if post.ID <= 0 {
+		return derr.NewBadRequestError("post id is required")
+	}
+	if post.Version <= 0 {
+		return derr.NewBadRequestError("version is required")
+	}
+
+	return nil
+}
+
 func ValidatePaginatedFeedQuery(q *domain.PaginatedFeedQuery) error {
 	if q == nil {
 		return derr.NewBadRequestError("feed query is required")
